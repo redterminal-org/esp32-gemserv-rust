@@ -8,3 +8,13 @@
 # Generated LittleFS filesystem images
 /littlefs.bin
 /littlefs-test.bin
+
+# Ignore created config.toml
+/config.toml
+
+# Ignores for the LittleFS
+/littlefs/*
+/littlefs/certs/
+# Keep the public Gemini Content versioned
+!/littlefs/gemini/
+!/littlefs/gemini/**

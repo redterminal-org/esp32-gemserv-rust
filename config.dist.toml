@@ -1,0 +1,18 @@
+
+[wifi]
+ssid = "YOUR_WIFI_SSID"
+password = "CHANGE_ME"
+
+[server]
+hostname = "gemini.example.net"
+port = 1965
+
+[tls]
+certificate_path = "/littlefs/certs/server.crt"
+private_key_path = "/littlefs/certs/server.key"
+
+[gemini]
+request_line_max_bytes = 1024
+response_chunk_size = 2048
+request_timeout_seconds = 10
+
