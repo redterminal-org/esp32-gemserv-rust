@@ -1,0 +1,10 @@
+/.vscode
+/.embuild
+/target
+
+# Local Python virtual environment for LittleFS image creation
+.venv-littlefs/
+
+# Generated LittleFS filesystem images
+/littlefs.bin
+/littlefs-test.bin
