@@ -1,0 +1,334 @@
+# Installing the Rust and ESP-IDF Toolchain
+
+This document describes how to prepare a Linux machine for building
+`esp32-gemserv-rust`.
+
+The project targets the classic ESP32 using the Xtensa architecture and
+ESP-IDF. A standard Rust toolchain alone is not sufficient.
+
+> **Compatibility note:** ESP-IDF and Rust toolchain integration evolves
+> over time. Use the toolchain versions supported by the project's
+> `Cargo.toml`, `Cargo.lock`, and ESP-IDF configuration. Do not update
+> dependencies or the ESP-IDF source revision casually when reproducing
+> a known-good build.
+
+## 1. Install system dependencies
+
+### Debian and Ubuntu
+
+Install the common build tools and libraries:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  build-essential \
+  git \
+  curl \
+  wget \
+  flex \
+  bison \
+  gperf \
+  python3 \
+  python3-pip \
+  python3-venv \
+  cmake \
+  ninja-build \
+  ccache \
+  pkg-config \
+  libffi-dev \
+  libssl-dev \
+  dfu-util \
+  libusb-1.0-0 \
+  libudev-dev \
+  openssl
+```
+
+Package names and requirements can differ between Linux distributions
+and ESP-IDF versions. Install any additional dependencies reported by
+the official ESP-IDF setup documentation for your distribution.
+
+### Other Linux distributions
+
+Install the equivalent packages using your distribution's package
+manager. You need, at minimum:
+
+- A C/C++ compiler and linker
+- CMake and Ninja
+- Git, curl, and Python 3
+- Development headers for OpenSSL and libffi
+- USB/serial support
+- OpenSSL for certificate generation
+
+On NixOS, use a suitable development shell or environment that provides
+the required native build dependencies. Do not assume that package
+names or linker paths from Debian/Ubuntu apply directly to NixOS.
+
+## 2. Install Rust
+
+If Rust is not installed, install `rustup` using the official instructions:
+
+https://rustup.rs/
+
+After installation, restart the shell or load the environment:
+
+```bash
+source "$HOME/.cargo/env"
+```
+
+Verify the installation:
+
+```bash
+rustc --version
+cargo --version
+rustup --version
+```
+
+## 3. Install the ESP32 Xtensa toolchain
+
+The classic ESP32 uses the Xtensa architecture. Install the Rust/ESP-IDF
+toolchain integration using `espup`:
+
+```bash
+cargo install espup
+espup install
+```
+
+The installer sets up the Xtensa toolchain and related components.
+Follow its output carefully; installation details may vary by release.
+
+The installation normally creates an environment script named
+`export-esp.sh` in your home directory.
+
+Load it in each new shell before building:
+
+```bash
+. "$HOME/export-esp.sh"
+```
+
+If the file was created in a different location, use the path printed
+by `espup install`.
+
+Check that the expected environment variables are set:
+
+```bash
+env | grep -E '^(LIBCLANG_PATH|IDF_PATH|ESP_IDF_VERSION|PATH)='
+```
+
+Not every variable is necessarily present in every version of the
+toolchain. Refer to the output of `espup` if the environment is unclear.
+
+## 4. Install supporting Rust tools
+
+Install `ldproxy`, which is commonly used as a linker proxy by ESP-IDF
+Rust projects:
+
+```bash
+cargo install ldproxy
+```
+
+Install `espflash` for flashing and serial monitoring:
+
+```bash
+cargo install espflash
+```
+
+If the project specifies or requires particular tool versions, use
+those versions instead of blindly installing the latest releases.
+
+Verify the tools:
+
+```bash
+ldproxy --version
+espflash --version
+```
+
+## 5. Clone the project
+
+Clone the repository and enter its directory:
+
+```bash
+git clone https://github.com/redterminal-org/esp32-gemserv-rust.git
+cd esp32-gemserv-rust
+```
+
+## 6. Check the project toolchain configuration
+
+Before building, inspect the Rust dependencies and configuration:
+
+```bash
+git status --short
+grep -nE 'esp-idf|patch|target' Cargo.toml
+grep -nE 'CONFIG_ESP_DEFAULT_CPU_FREQ|CONFIG_ESP32_DEFAULT_CPU_FREQ' \
+  sdkconfig.defaults
+```
+
+This project uses ESP-IDF Rust crates patched to an ESP-IDF Git repository.
+The dependency revision recorded in the project's lockfile and manifest
+is important for reproducible builds.
+
+Do not casually change the ESP-IDF Git revision, Rust toolchain, or
+ESP-IDF configuration when setting up a second machine.
+
+If the repository contains a `rust-toolchain.toml` file, follow the
+toolchain version declared there. If no such file exists, use the
+toolchain supported by the installed `espup` version and the project
+dependencies.
+
+## 7. Build the firmware
+
+In the project directory, load the ESP environment:
+
+```bash
+. "$HOME/export-esp.sh"
+```
+
+Then build the release firmware:
+
+```bash
+cargo build --release
+```
+
+The expected output binary is:
+
+```text
+target/xtensa-esp32-espidf/release/esp32-gemserv-rust
+```
+
+The first build may take significantly longer because dependencies
+and ESP-IDF components need to be compiled.
+
+Warnings about unused configuration fields may appear while the
+Gemini server implementation is still under development. Compilation
+errors, however, must be resolved before flashing.
+
+## 8. Connect the ESP32
+
+Connect the board using a USB data cable.
+
+Find the serial device:
+
+```bash
+ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
+```
+
+Common device names are `/dev/ttyUSB0` and `/dev/ttyACM0`.
+
+If permission is denied, check your distribution's serial-device
+permissions and group configuration. Log out and back in if group
+membership changes are required. Do not run the entire build or
+development workflow as root merely to bypass serial permissions.
+
+## 9. Flash the firmware
+
+**Use the project's custom partition table.** It includes a LittleFS
+partition starting at `0x210000`, with size `0x1F0000`.
+
+Load the ESP environment and run:
+
+```bash
+. "$HOME/export-esp.sh"
+
+espflash flash \
+  --monitor \
+  --port /dev/ttyUSB0 \
+  --chip esp32 \
+  --partition-table partitions.csv \
+  target/xtensa-esp32-espidf/release/esp32-gemserv-rust
+```
+
+Replace `/dev/ttyUSB0` with the device identified on your system.
+
+Do not omit `--partition-table partitions.csv`: using an unrelated
+partition table can cause the firmware and filesystem layout to disagree.
+
+The firmware and LittleFS image are separate artifacts. Flashing the
+firmware does not necessarily update the LittleFS contents. Follow the
+project README for preparing and flashing the filesystem image.
+
+## 10. Generate a development TLS certificate
+
+OpenSSL is required for local certificate generation.
+
+```bash
+mkdir -p certs
+
+openssl req -x509 -newkey ec \
+  -pkeyopt ec_paramgen_curve:prime256v1 \
+  -sha256 -days 365 \
+  -nodes \
+  -keyout certs/server.key \
+  -out certs/server.crt \
+  -subj "/CN=esp32-gemini.local" \
+  -addext "subjectAltName=DNS:esp32-gemini.local"
+```
+
+Keep `certs/server.key` private. Do not commit the private key to Git.
+
+The certificate and key must be copied into the LittleFS staging
+directory and included in the generated filesystem image. See `README.md`.
+
+## 11. Reproducing a build
+
+For a more reproducible setup:
+
+1. Use the same project commit.
+2. Keep `Cargo.lock` under version control.
+3. Use a compatible `espup` and ESP-IDF toolchain.
+4. Preserve the ESP-IDF source revision and project configuration.
+5. Build using `cargo build --release`.
+6. Use the project's `partitions.csv` when flashing.
+7. Keep configuration, certificate, key, and filesystem image handling
+   separate from source control.
+
+The exact versions of Rust, `espup`, `espflash`, ESP-IDF, and native
+dependencies should be recorded once the project adopts a pinned
+toolchain specification.
+
+## Troubleshooting
+
+### `xtensa-esp32-espidf` target or linker not found
+
+Load the environment script:
+
+```bash
+. "$HOME/export-esp.sh"
+```
+
+If the problem persists, rerun the toolchain setup and inspect the
+installed toolchain versions.
+
+### ESP-IDF configuration errors
+
+Review `sdkconfig.defaults` and the ESP-IDF version used by the project.
+Do not copy a generated `sdkconfig` from an unrelated ESP-IDF release
+without checking compatibility.
+
+### Serial permission denied
+
+Check the device owner and group:
+
+```bash
+ls -l /dev/ttyUSB0
+```
+
+Use your system's recommended serial-port permissions and group setup.
+
+### Firmware boots but configuration or TLS files are missing
+
+Check that the LittleFS image contains:
+
+```text
+config.toml
+certs/server.crt
+certs/server.key
+```
+
+Confirm that the filesystem image was flashed to the `littlefs`
+partition at offset `0x210000` and that the image fits within
+`0x1F0000` bytes.
+
+### Build works on one machine but not another
+
+Compare the project commit, `Cargo.lock`, ESP-IDF revision, toolchain
+versions, environment variables, and native build dependencies before
+changing application code.

@@ -652,6 +652,8 @@ dependencies = [
  "embuild",
  "esp-idf-svc",
  "log",
+ "serde",
+ "toml",
 ]
 
 [[package]]

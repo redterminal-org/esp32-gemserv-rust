@@ -18,3 +18,9 @@
 # Keep the public Gemini Content versioned
 !/littlefs/gemini/
 !/littlefs/gemini/**
+
+# Ignore .build directory for LittleFS builds
+.build/
+
+# Local TLS certificates and private keys
+/certs/
