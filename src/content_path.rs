@@ -11,7 +11,9 @@ pub fn resolve_url_path(current_path: &str, requested_path: &str) -> Result<Stri
         return Err("Requested path contains invalid characters");
     }
 
-    let path = requested_path.split_once('?').map_or(requested_path, |(path, _)| path);
+    let path = requested_path
+        .split_once('?')
+        .map_or(requested_path, |(path, _)| path);
 
     if path.is_empty() {
         return Err("Requested path is empty");

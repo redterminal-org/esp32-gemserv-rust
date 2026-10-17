@@ -6,10 +6,25 @@ pub fn read_request_line(
     max_bytes: usize,
     timeout: Duration,
 ) -> Result<Vec<u8>, &'static str> {
+    let mut buffer = vec![0_u8; max_bytes];
+    let length = read_request_line_into(tls, &mut buffer, timeout)?.len();
+    buffer.truncate(length);
+    Ok(buffer)
+}
+
+pub fn read_request_line_into<'a>(
+    tls: *mut sys::esp_tls_t,
+    buffer: &'a mut [u8],
+    timeout: Duration,
+) -> Result<&'a [u8], &'static str> {
+    if buffer.len() < 2 {
+        return Err("Request line buffer too small");
+    }
+
     let deadline = unsafe { sys::esp_timer_get_time() }
         .saturating_add(timeout.as_micros().min(i64::MAX as u128) as i64);
 
-    let mut line = Vec::with_capacity(max_bytes.min(128));
+    let mut used = 0;
     let mut byte = [0_u8; 1];
 
     loop {
@@ -20,13 +35,18 @@ pub fn read_request_line(
         let result = unsafe { sys::esp_tls_conn_read(tls, byte.as_mut_ptr().cast(), byte.len()) };
 
         if result == 1 {
-            line.push(byte[0]);
-
-            if line.ends_with(b"\r\n") {
-                return Ok(line);
+            if used >= buffer.len() {
+                return Err("Request line too long");
             }
 
-            if line.len() >= max_bytes {
+            buffer[used] = byte[0];
+            used += 1;
+
+            if used >= 2 && &buffer[used - 2..used] == b"\r\n" {
+                return Ok(&buffer[..used]);
+            }
+
+            if used == buffer.len() {
                 return Err("Request line too long");
             }
         } else if result == 0 {

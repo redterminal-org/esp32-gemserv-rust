@@ -28,7 +28,7 @@ pub struct TlsConfig {
     pub handshake_timeout_seconds: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct GeminiConfig {
     pub request_line_max_bytes: usize,
     pub response_chunk_size: usize,

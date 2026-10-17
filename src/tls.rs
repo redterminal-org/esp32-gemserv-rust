@@ -43,6 +43,10 @@ impl ServerTlsConfig {
         })
     }
 
+    pub fn copy_config(&self) -> sys::esp_tls_cfg_server_t {
+        self.config
+    }
+
     pub fn as_mut_ptr(&mut self) -> *mut sys::esp_tls_cfg_server_t {
         // Keep the PEM buffers alive while ESP-TLS uses their pointers.
         let _keep_buffers_alive = (&self.certificate, &self.private_key);
