@@ -25,6 +25,7 @@ pub struct ServerConfig {
 pub struct TlsConfig {
     pub certificate_path: String,
     pub private_key_path: String,
+    pub handshake_timeout_seconds: u64,
 }
 
 #[derive(Debug, Deserialize)]

@@ -10,6 +10,7 @@ port = 1965
 [tls]
 certificate_path = "/littlefs/certs/server.crt"
 private_key_path = "/littlefs/certs/server.key"
+handshake_timeout_seconds = 10
 
 [gemini]
 request_line_max_bytes = 1024
