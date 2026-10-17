@@ -33,6 +33,7 @@ pub struct GeminiConfig {
     pub request_line_max_bytes: usize,
     pub response_chunk_size: usize,
     pub request_timeout_seconds: u64,
+    pub lang: Option<String>,
 }
 
 pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {

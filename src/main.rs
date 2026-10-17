@@ -1,6 +1,8 @@
 mod config;
+mod content_path;
 mod gemini;
 mod gemini_parser;
+mod gemini_response;
 mod server;
 mod storage;
 mod tls;
@@ -38,6 +40,7 @@ fn main() {
                             Ok(_wifi_thread) => {
                                 log::info!("WiFi reconnect task started");
                                 if let Err(err) = server::run(
+                                    &config.server.hostname,
                                     config.server.port,
                                     &config.tls.certificate_path,
                                     &config.tls.private_key_path,

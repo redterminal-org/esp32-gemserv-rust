@@ -16,4 +16,4 @@ handshake_timeout_seconds = 10
 request_line_max_bytes = 1024
 response_chunk_size = 2048
 request_timeout_seconds = 10
-
+lang = "en"
