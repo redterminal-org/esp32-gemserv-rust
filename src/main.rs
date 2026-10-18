@@ -7,6 +7,7 @@ mod gemini_parser;
 mod gemini_response;
 mod server;
 mod storage;
+mod status;
 mod tls;
 mod wifi;
 

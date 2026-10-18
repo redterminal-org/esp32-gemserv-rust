@@ -27,3 +27,6 @@ timezone = "UTC0"
 
 # Optional path relative to the LittleFS root; omit or set to an empty string to disable boot logging.
 boot_log_path = "/gemini/bootlog.txt"
+
+# Enable the public dynamic status page at /status; omitted or false disables it.
+statuspage = false

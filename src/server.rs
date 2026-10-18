@@ -246,6 +246,26 @@ fn process_connection(worker: &mut WorkerContext, socket_fd: i32) {
             }
         };
 
+        if resolved_path == "/status" {
+            if config.statuspage == Some(true) {
+                crate::gemini::write_all(
+                    tls,
+                    b"20 text/gemini; charset=utf-8\r\n",
+                    timeout,
+                )?;
+                if let Err(err) = crate::status::write_status(
+                    tls,
+                    &mut worker.response_buffer,
+                    timeout,
+                ) {
+                    log::warn!("Failed to generate status page: {}", err);
+                }
+            } else {
+                send_error(tls, GeminiStatus::NotFound, "Not found", timeout)?;
+            }
+            return Ok(());
+        }
+
         let file_path = match crate::content_path::content_file_path(&resolved_path) {
             Ok(path) => path,
             Err(err) => {

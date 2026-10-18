@@ -36,6 +36,7 @@ pub struct GeminiConfig {
     pub lang: Option<String>,
     pub timezone: Option<String>,
     pub boot_log_path: Option<String>,
+    pub statuspage: Option<bool>,
 }
 
 pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
