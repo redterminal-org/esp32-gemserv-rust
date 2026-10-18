@@ -34,6 +34,7 @@ pub fn run(
     private_key_path: &str,
     handshake_timeout_seconds: u64,
     gemini_config: &GeminiConfig,
+    boot_log_path: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let tls_owner = crate::tls::ServerTlsConfig::load(certificate_path, private_key_path)?;
 
@@ -105,6 +106,12 @@ pub fn run(
 
         created_tasks.push((task_handle, worker_ptr));
         log::info!("Gemini worker started on core {}", core_id);
+    }
+
+    if let Some(path) = boot_log_path.filter(|path| !path.trim().is_empty()) {
+        if let Err(err) = crate::storage::append_boot_log(path) {
+            log::error!("Failed to append boot log: {}", err);
+        }
     }
 
     loop {

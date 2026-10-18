@@ -17,3 +17,13 @@ request_line_max_bytes = 1024
 response_chunk_size = 2048
 request_timeout_seconds = 10
 lang = "en"
+
+# POSIX TZ format: STDoffset[DST[offset],start[/time],end[/time]].
+# The offset sign is opposite to the usual UTC offset; UTC without DST is UTC0.
+# Mmonth.week.weekday/time: month 1..12, week 1..5 (5 means last), weekday 0..6 (0 is Sunday).
+# Example for Central Europe: CET-1CEST,M3.5.0/2,M10.5.0/3
+# DST starts on the last Sunday in March at 02:00 standard time and ends on the last Sunday in October at 03:00 daylight time.
+timezone = "UTC0"
+
+# Optional path relative to the LittleFS root; omit or set to an empty string to disable boot logging.
+boot_log_path = "/gemini/bootlog.txt"

@@ -34,6 +34,8 @@ pub struct GeminiConfig {
     pub response_chunk_size: usize,
     pub request_timeout_seconds: u64,
     pub lang: Option<String>,
+    pub timezone: Option<String>,
+    pub boot_log_path: Option<String>,
 }
 
 pub fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
