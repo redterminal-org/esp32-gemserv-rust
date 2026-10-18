@@ -1,6 +1,7 @@
 use esp_idf_svc::sys;
 use std::convert::TryFrom;
 
+#[allow(dead_code)]
 pub struct ServerTlsConfig {
     certificate: Vec<u8>,
     private_key: Vec<u8>,
@@ -45,11 +46,5 @@ impl ServerTlsConfig {
 
     pub fn copy_config(&self) -> sys::esp_tls_cfg_server_t {
         self.config
-    }
-
-    pub fn as_mut_ptr(&mut self) -> *mut sys::esp_tls_cfg_server_t {
-        // Keep the PEM buffers alive while ESP-TLS uses their pointers.
-        let _keep_buffers_alive = (&self.certificate, &self.private_key);
-        &mut self.config
     }
 }

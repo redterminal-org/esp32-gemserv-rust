@@ -1,17 +1,6 @@
 use esp_idf_svc::sys;
 use std::time::Duration;
 
-pub fn read_request_line(
-    tls: *mut sys::esp_tls_t,
-    max_bytes: usize,
-    timeout: Duration,
-) -> Result<Vec<u8>, &'static str> {
-    let mut buffer = vec![0_u8; max_bytes];
-    let length = read_request_line_into(tls, &mut buffer, timeout)?.len();
-    buffer.truncate(length);
-    Ok(buffer)
-}
-
 pub fn read_request_line_into<'a>(
     tls: *mut sys::esp_tls_t,
     buffer: &'a mut [u8],

@@ -1,3 +1,4 @@
+#![allow(linker_messages)]
 mod config;
 mod content_path;
 mod gemini;

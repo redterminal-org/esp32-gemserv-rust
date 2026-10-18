@@ -1,5 +1,6 @@
 use crate::config::GeminiConfig;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum GeminiStatus {
