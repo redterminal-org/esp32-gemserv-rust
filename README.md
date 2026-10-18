@@ -1,34 +1,41 @@
 # ESP32 Gemini Server (Rust)
 
-A Gemini protocol server for the classic ESP32, written in Rust and
-built on ESP-IDF. The project uses LittleFS for configuration, TLS
-credentials, and Gemini content.
+A Gemini protocol server written in Rust for the classic ESP32, using ESP-IDF. The server serves Gemini resources from a LittleFS filesystem over TLS.
 
-> **Development status:** The current firmware mounts LittleFS, reads
-> its configuration and TLS files, and connects to Wi-Fi. The Gemini
-> protocol server is not implemented yet. Do not treat this revision
-> as a working Gemini server.
+## Features
 
-## Features and design goals
+- Gemini protocol support over TLS.
+- Wi-Fi connectivity with reconnection and exponential backoff.
+- Two worker tasks, with one worker assigned to each ESP32 core.
+- A bounded request queue for handling incoming connections while workers are busy.
+- Configurable hostname, port, TLS settings, request limits, and response chunk size.
+- Files served from LittleFS, including directory index files.
+- MIME type detection and Gemini response status handling.
+- Streaming file responses to limit memory usage.
 
-- Target: classic ESP32 with 4 MiB flash
-- Rust application using ESP-IDF
-- Wi-Fi client with automatic reconnection and exponential backoff
-- LittleFS filesystem for configuration, certificates, and public content
-- TLS using a certificate and private key stored in LittleFS
-- Planned Gemini server on TCP/TLS port 1965
-- Planned two worker tasks pinned to separate CPU cores
-- Planned queue for up to four pending connections
-- Planned streaming of content in bounded chunks
+## Server architecture
 
-Items marked as planned are not implemented unless stated otherwise.
+The server uses one listener thread and two worker tasks to handle incoming requests concurrently.
 
-## Hardware
+1. **Listener thread:** Accepts incoming connections and places requests in a bounded queue.
+2. **Request queue:** Holds up to four requests while the workers are busy.
+3. **Worker tasks:** Two workers process requests concurrently, with one worker running on each ESP32 core. When a worker becomes available, it takes the next queued request for processing.
+4. **Queue full:** When both workers are occupied and all four queue slots are full, additional requests are rejected rather than queued.
 
-The current target is a classic ESP32 board with 4 MiB of flash.
+The server can therefore accommodate **up to six requests at once**: two requests being processed by the workers and four waiting in the queue. This is the combined processing and queue capacity, not six worker threads.
 
-The firmware is configured to run the CPU at 240 MHz. Actual frequency
-and available memory depend on the chip, board, and ESP-IDF configuration.
+## Hardware and partition layout
+
+The project targets the classic ESP32. The partition table defines the following layout:
+
+| Partition | Offset | Size |
+|---|---:|---:|
+| NVS | `0x9000` | `0x6000` |
+| PHY initialization data | `0xF000` | `0x1000` |
+| Factory application | `0x10000` | `0x200000` |
+| LittleFS | `0x210000` | `0x1F0000` |
+
+The LittleFS partition is separate from the firmware application. Firmware and filesystem images must be flashed to their respective locations.
 
 ## Repository layout
 
@@ -36,63 +43,83 @@ and available memory depend on the chip, board, and ESP-IDF configuration.
 .
 ├── Cargo.toml
 ├── Cargo.lock
-├── sdkconfig.defaults
-├── partitions.csv
+├── build.rs
 ├── config.dist.toml
+├── partitions.csv
+├── sdkconfig.defaults
+├── rust-toolchain.toml
+├── INSTALL_TOOLCHAIN.md
 ├── src/
 │   ├── main.rs
-│   └── config.rs
-├── certs/                  # Local certificate staging; do not commit keys
-└── .build/
-    └── littlefs/           # Local LittleFS image staging
+│   ├── config.rs
+│   ├── content_path.rs
+│   ├── gemini.rs
+│   ├── gemini_parser.rs
+│   ├── gemini_response.rs
+│   ├── server.rs
+│   ├── storage.rs
+│   ├── tls.rs
+│   └── wifi.rs
+└── littlefs/
+    └── gemini/
+        └── index.gmi
 ```
-
-Some generated files and directories may be ignored by Git.
 
 ## Prerequisites
 
-Set up the Rust and ESP-IDF build environment by following
-[INSTALL_TOOLCHAIN.md](INSTALL_TOOLCHAIN.md).
+Install the Rust and ESP-IDF toolchain required by this project. The repository uses the ESP Rust toolchain specified in `rust-toolchain.toml`.
 
-You will also need:
+Follow [INSTALL_TOOLCHAIN.md](INSTALL_TOOLCHAIN.md) for the toolchain setup instructions.
 
-- Git
-- A USB data cable and a supported USB-to-UART interface
-- Access to the ESP32 serial device
-- OpenSSL to generate a self-signed TLS certificate
-- A LittleFS image creation tool compatible with the project's build process
+You will also need the relevant ESP-IDF build tools, a supported ESP32 board, and the utilities used to generate and flash the LittleFS image.
 
-On Linux, the serial device is commonly `/dev/ttyUSB0` or `/dev/ttyACM0`.
-Your device name may differ.
+## Cloning the repository
 
-## 1. Clone the repository
+At first you need to clone the Repository including the sub-modules to your current working directory.
 
-```bash
-git clone https://github.com/redterminal-org/esp32-gemserv-rust.git
-cd esp32-gemserv-rust
+```
+git clone --recurse-submodules https://github.com/redterminal-org/esp32-gemserv-rust
 ```
 
-## 2. Configure the project
+## Configuration
 
-Create a private local configuration from the distributed template:
+Start with the distributed configuration template, `config.dist.toml`, and create the configuration file expected by the application.
 
-```bash
-cp config.dist.toml config.toml
+The configuration covers the following areas:
+
+- **Wi-Fi:** SSID and password.
+- **Server:** Gemini hostname and listening port.
+- **TLS:** Certificate path, private-key path, and handshake timeout.
+- **Gemini:** Request-line size limit, response chunk size, request timeout, and optional language metadata.
+
+Example configuration:
+
+```toml
+[wifi]
+ssid = "your-wifi-ssid"
+password = "your-wifi-password"
+
+[server]
+hostname = "gemini.example.net"
+port = 1965
+
+[tls]
+certificate_path = "/littlefs/certs/server.crt"
+private_key_path = "/littlefs/certs/server.key"
+handshake_timeout_seconds = 10
+
+[gemini]
+request_line_max_bytes = 1024
+response_chunk_size = 2048
+request_timeout_seconds = 10
+lang = "en"
 ```
 
-Edit `config.toml` and set your Wi-Fi credentials and desired server settings.
-Never commit your real configuration or Wi-Fi password.
+Use the actual field names and supported values from `config.dist.toml` when creating your configuration. Keep credentials and private keys out of version control.
 
-The firmware currently reads the configuration from:
+## TLS certificates
 
-```text
-/littlefs/config.toml
-```
-
-The exact configuration keys and supported values are defined in
-`src/config.rs` and `config.dist.toml`. Keep the two files consistent.
-
-## 3. Generate a TLS certificate
+The Gemini protocol normally uses TLS on TCP port `1965`.
 
 The firmware expects these files on LittleFS:
 
@@ -122,153 +149,56 @@ openssl req -x509 -newkey ec \
 
 This creates an ECDSA certificate using the `prime256v1` curve.
 
-The `-nodes` option leaves the private key unencrypted so the firmware
-can load it without an interactive password prompt. Protect the private
-key and never publish it.
+The `-nodes` option leaves the private key unencrypted so the firmware can load it without an interactive password prompt. Protect the private key and never publish it.
 
-A self-signed certificate is suitable for development, but clients will
-not automatically trust it. Configure trust in your Gemini client or
-use a certificate appropriate for your deployment.
+A self-signed certificate is suitable for development, but clients will not automatically trust it. Configure trust in your Gemini client or use a certificate appropriate for your deployment.
 
-If your client connects using a hostname, make sure the certificate
-identity matches that hostname. Some clients require a Subject
-Alternative Name (SAN); add the required DNS or IP SAN when generating
-the certificate for your environment.
+If your client connects using a hostname, make sure the certificate identity matches that hostname. Some clients require a Subject Alternative Name (SAN); add the required DNS or IP SAN when generating the certificate for your environment.
 
-## 4. Prepare the LittleFS contents
+## Preparing the LittleFS image
 
-The firmware needs at least the following files inside its filesystem:
+Place the content to be served under `littlefs/gemini/`. The initial example resource is:
 
 ```text
-config.toml
-certs/
-├── server.crt
-└── server.key
-gemini/
-└── index.gmi
+littlefs/gemini/index.gmi
 ```
 
-Create a local staging directory:
+The file contains a simple Gemini greeting. Add other `.gmi` documents and supported resources under this directory as needed.
+
+The generated filesystem image must match the LittleFS partition defined in `partitions.csv`. The partition begins at `0x210000` and has a size of `0x1F0000`.
+
+Use a compatible LittleFS image-generation tool. For example, where supported by your installed `mklittlefs` version, the image-generation command can be adapted from:
 
 ```bash
-mkdir -p .build/littlefs/certs
-mkdir -p .build/littlefs/gemini
-```
-
-Copy the local configuration and certificates into the staging directory:
-
-```bash
-cp config.toml .build/littlefs/config.toml
-cp certs/server.crt .build/littlefs/certs/server.crt
-cp certs/server.key .build/littlefs/certs/server.key
-```
-
-Create a basic Gemini home page:
-
-```bash
-cat > .build/littlefs/gemini/index.gmi <<'EOF'
-# My ESP32 Gemini server
-
-Welcome to my Gemini site.
-
-=> /docs/ Documentation
-EOF
-```
-
-The staging directory is local build input. Do not commit private
-configuration, private keys, or generated filesystem images.
-
-### Add your own Gemini content
-
-Put public files under:
-
-```text
-.build/littlefs/gemini/
-```
-
-For example:
-
-```text
-.build/littlefs/gemini/
-├── index.gmi
-├── about.gmi
-├── docs/
-│   ├── index.gmi
-│   └── setup.gmi
-└── images/
-    └── diagram.png
-```
-
-Gemini documents normally use the `.gmi` extension and Gemtext syntax.
-Links can be written like this:
-
-```text
-=> /about.gmi About this site
-=> /docs/ Documentation
-```
-
-Only publish files you intend to make publicly accessible. Never place
-private keys, Wi-Fi credentials, or other secrets in the public content
-directory.
-
-The intended URL mapping is:
-
-- `/` → `gemini/index.gmi`
-- `/docs` and `/docs/` → `gemini/docs/index.gmi`
-- `/docs/setup.gmi` → `gemini/docs/setup.gmi`
-
-This mapping describes the planned server behavior; it will only work
-once the Gemini request handler has been implemented.
-
-### Build the LittleFS image
-
-The LittleFS partition starts at `0x210000` and has size `0x1F0000`
-(1,966,080 bytes).
-
-Create a LittleFS image from `.build/littlefs/` using the image tool and
-parameters expected by this project's ESP-IDF/LittleFS integration.
-The output is typically named `littlefs.bin`.
-
-For example, if the project's selected `mklittlefs` version uses the
-usual 256-byte read/program size and 4096-byte block size, the command
-may look like this:
-
-```bash
-# Create littlfs.bin image
-mklittlefs -c .build/littlefs \
-  -p 256 -b 4096 -s 0x1F0000 \
+mklittlefs \
+  -c littlefs \
+  -b 4096 \
+  -p 256 \
+  -s 2031616 \
   littlefs.bin
-
-# Flash littlefs.bin to your ESP32
-espflash write-bin --port /dev/ttyUSB0 \
-  --chip esp32 0x210000 littlefs.bin
 ```
 
-Verify these geometry parameters against the LittleFS tool and ESP-IDF
-component actually used by the project before relying on this command.
-Do not use a filesystem image larger than the partition.
+Check the image-generation tool's options and the filesystem geometry expected by the project's LittleFS integration before relying on these parameters.
 
-## 5. Build the firmware
+## Building
 
-Load the environment described in `INSTALL_TOOLCHAIN.md`, then run:
+After installing and configuring the toolchain, build the firmware in release mode:
 
 ```bash
 cargo build --release
 ```
 
-The release binary is expected at:
+The expected ESP32 target output is:
 
 ```text
 target/xtensa-esp32-espidf/release/esp32-gemserv-rust
 ```
 
-Warnings about currently unused server, TLS, or Gemini configuration
-fields are expected while those parts of the implementation are pending.
+If the build fails, check the toolchain setup in `INSTALL_TOOLCHAIN.md`, the ESP-IDF environment, and the availability of the project's ESP-IDF component dependencies.
 
-## 6. Flash the firmware
+## Flashing
 
-Check the serial device name first. The following example uses
-`/dev/ttyUSB0`:
+Flash the application using the ESP flashing tools. For example:
 
 ```bash
 espflash flash \
@@ -279,40 +209,87 @@ espflash flash \
   target/xtensa-esp32-espidf/release/esp32-gemserv-rust
 ```
 
-**Important:** Always supply `--partition-table partitions.csv` when
-flashing this project. The custom partition layout includes the LittleFS
-partition. Do not replace it with an unrelated default partition table.
+Replace `/dev/ttyUSB0` with the serial port for your board.
 
-The command above flashes the firmware. Flash the generated LittleFS
-image to the `littlefs` partition using a method compatible with your
-installed `espflash` version, or use the project's documented flashing
-script if one is added. Verify the destination offset is `0x210000`;
-never flash the filesystem image at the application offset.
+The LittleFS image is flashed separately to the filesystem partition at offset `0x210000`. Use a flashing command appropriate for your installed tools and verify the partition table and image size before writing to the device.
 
-After flashing, the serial monitor should show messages similar to:
+## Request handling
+
+The server follows the Gemini protocol and processes requests using the listener-and-worker architecture described above.
+
+- The listener accepts connections and queues requests for processing.
+- Two worker tasks handle requests concurrently.
+- The request queue holds at most four waiting requests.
+- Requests that cannot be queued because the queue is full are rejected.
+- Request lines are parsed and validated before the requested resource is opened.
+- Requests must use the `gemini://` scheme and a valid authority.
+- User information and URI fragments are rejected.
+- A missing path is treated as `/`.
+- Query parameters are handled separately from the filesystem path.
+- Directory requests are resolved to an index document.
+- Files are served from the configured Gemini content directory.
+- File data is streamed in bounded chunks instead of being loaded entirely into memory.
+
+## Gemini responses and MIME types
+
+The server builds Gemini response headers and maps supported file extensions to MIME types.
+
+Text responses use UTF-8 charset metadata where appropriate. Gemtext responses can include language metadata when the corresponding configuration option is set.
+
+The implementation includes Gemini protocol status handling for successful responses, missing resources, temporary failures, and other request or server errors.
+
+## Content paths
+
+Content is served from the Gemini content tree on LittleFS. For example, a document stored at:
 
 ```text
-LittleFS mounted successfully
-Configuration loaded successfully
-TLS certificate file is readable
-TLS private key file is readable
-WiFi reconnect task started
-WiFi started
-WiFi connected
+/littlefs/gemini/docs/index.gmi
 ```
 
-Exact log messages may change as development continues.
+can be requested using a corresponding Gemini URL such as:
 
-## Security notes
+```text
+gemini://gemini.example.net/docs/
+```
 
-- Never commit Wi-Fi passwords or private keys.
-- Keep `config.toml`, `certs/server.key`, and generated images out of Git.
-- Use a self-signed certificate only where its trust implications are
-  understood.
-- Publish only intentionally public content under `gemini/`.
-- Review the partition table before flashing.
-- Do not assume the Gemini server is available until its request
-  handling and TLS listener have been implemented and tested.
+Directory paths are resolved to index documents. Resource paths are validated and resolved within the content tree rather than being used as unrestricted filesystem paths.
+
+## Wi-Fi behavior
+
+The device connects using the configured Wi-Fi credentials. The Wi-Fi module includes reconnection handling with exponential backoff, starting at one second and increasing up to thirty seconds.
+
+Check the configured network credentials and the device's serial output if it cannot connect.
+
+## Security considerations
+
+- Protect the TLS private key and Wi-Fi credentials.
+- Do not commit real credentials or private keys to the repository.
+- Use a certificate appropriate for the server's hostname.
+- Keep firmware, partition layout, and filesystem image sizes consistent.
+- The bounded request queue limits the number of waiting requests; requests arriving when the queue is full are rejected.
+- Expose the service only on networks where the device and its resource content can be appropriately secured.
+
+## Troubleshooting
+
+**The firmware does not build**
+
+Verify the ESP Rust toolchain and ESP-IDF setup described in `INSTALL_TOOLCHAIN.md`. Check that all required ESP-IDF components and dependencies are available.
+
+**Wi-Fi does not connect**
+
+Check the configured SSID and password, Wi-Fi coverage, and serial output.
+
+**TLS initialization fails**
+
+Check that the certificate and private key exist at the configured paths, are readable, and correspond to each other.
+
+**A resource returns a not-found response**
+
+Verify the requested URL, the resource's location in the Gemini content tree, and the filesystem image flashed to the device. Directory requests should resolve to an index document.
+
+**Requests are rejected under load**
+
+The server has two active workers and four queue slots. When both workers are busy and the queue is full, new requests are rejected. This is expected behavior for the bounded queue.
 
 ## License
 
