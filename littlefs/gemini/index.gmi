@@ -1,1 +1,47 @@
-# Hello from the esp32-gemserv-rust server
+# ESP32 Gemini Server in Rust!
+
+Welcome to my ESP32 Gemini server!
+
+This capsule is served by a classic ESP32 running a Gemini protocol server written in Rust with ESP-IDF.
+
+## About this project
+
+- Gemini protocol over TLS
+- Rust firmware for the classic ESP32
+- LittleFS-based content storage
+- Bounded request handling and streaming responses
+- Runtime status and boot diagnostics
+
+## Project documentation
+
+=> /README.gmi Project overview and documentation
+=> /INSTALL_TOOLCHAIN.gmi Rust and ESP-IDF toolchain installation
+=> /LICENSE.txt Project license (MIT)
+
+## Diagnostics
+
+=> /bootlog.txt Boot timestamps and startup durations
+=> /status Live system status, heap and FreeRTOS tasks
+
+## redterminal.org Contact Info
+
+=> gemini://redterminal.org/ fab's Gemini Capsule
+=> mailto:fab@redterminal.org Email: -fab- <fab@redterminal.org>
+=> misfin://fab@redterminal.org Misfin: -fab- (fab@redterminal.org)
+=> finger://redterminal.org/fab Finger: fab@redterminal.org
+=> gopher://redterminal.org/ Gopher gopher://redterminal.org/
+=> https://codeberg.org/fab/ My Git Account at CodeBerg.org
+
+You can receive my GnuPG key with WKD or the following command:
+
+```bash
+gpg --auto-key-locate wkd --locate-key fab@redterminal.org
+```
+
+=> gemini://redterminal.org/fab@redterminal.org.gpg.txt Or Download GPG Key
+
+## License
+
+This project is licensed under the MIT License.
+
+=> /LICENSE.txt Read the MIT License

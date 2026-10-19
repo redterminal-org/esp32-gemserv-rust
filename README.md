@@ -62,7 +62,10 @@ The LittleFS partition is separate from the firmware application. Firmware and f
 │   └── wifi.rs
 └── littlefs/
     └── gemini/
-        └── index.gmi
+        ├── index.gmi
+        ├── README.gmi
+        ├── INSTALL_TOOLCHAIN.gmi
+        └── LICENSE.txt
 ```
 
 ## Prerequisites
