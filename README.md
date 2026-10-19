@@ -41,31 +41,45 @@ The LittleFS partition is separate from the firmware application. Firmware and f
 
 ```text
 .
+├── .cargo/
+│   └── config.toml
+├── .github/
+│   └── workflows/
+│       └── rust_ci.yml
+├── .gitignore
+├── .gitmodules
 ├── Cargo.toml
 ├── Cargo.lock
 ├── build.rs
+├── components/
+│   └── esp_littlefs/          # Git submodule
+├── components_esp32.lock
 ├── config.dist.toml
-├── partitions.csv
-├── sdkconfig.defaults
-├── rust-toolchain.toml
 ├── INSTALL_TOOLCHAIN.md
-├── src/
-│   ├── main.rs
-│   ├── config.rs
-│   ├── content_path.rs
-│   ├── gemini.rs
-│   ├── gemini_parser.rs
-│   ├── gemini_response.rs
-│   ├── server.rs
-│   ├── storage.rs
-│   ├── tls.rs
-│   └── wifi.rs
-└── littlefs/
-    └── gemini/
-        ├── index.gmi
-        ├── README.gmi
-        ├── INSTALL_TOOLCHAIN.gmi
-        └── LICENSE.txt
+├── LICENSE
+├── littlefs/
+│   └── gemini/
+│       ├── index.gmi
+│       ├── README.gmi
+│       ├── INSTALL_TOOLCHAIN.gmi
+│       └── LICENSE.txt
+├── littlefs_bindings.h
+├── partitions.csv
+├── rust-toolchain.toml
+├── sdkconfig.defaults
+└── src/
+    ├── clock.rs
+    ├── config.rs
+    ├── content_path.rs
+    ├── gemini.rs
+    ├── gemini_parser.rs
+    ├── gemini_response.rs
+    ├── main.rs
+    ├── server.rs
+    ├── status.rs
+    ├── storage.rs
+    ├── tls.rs
+    └── wifi.rs
 ```
 
 ## Prerequisites
