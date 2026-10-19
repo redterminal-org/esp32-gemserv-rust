@@ -147,7 +147,7 @@ espflash --version
 Clone the repository and enter its directory:
 
 ```bash
-git clone https://github.com/redterminal-org/esp32-gemserv-rust.git
+git clone --recurse-submodules https://github.com/redterminal-org/esp32-gemserv-rust.git
 cd esp32-gemserv-rust
 ```
 
