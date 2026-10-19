@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::Read;
 use std::net::TcpListener;
 use std::os::fd::IntoRawFd;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::config::GeminiConfig;
@@ -15,6 +16,14 @@ const CORE_0: i32 = 0;
 const CORE_1: i32 = 1;
 const QUEUE_SEND_TO_BACK: i32 = 0;
 const QUEUE_WAIT_FOREVER: u32 = u32::MAX;
+
+struct RequestActivity {
+    count: usize,
+    pin: i32,
+}
+
+static REQUEST_ACTIVITY: Mutex<RequestActivity> =
+    Mutex::new(RequestActivity { count: 0, pin: 2 });
 
 struct WorkerContext {
     queue: sys::QueueHandle_t,
@@ -30,12 +39,15 @@ struct WorkerContext {
 pub fn run(
     hostname: &str,
     port: u16,
+    status_led: i32,
     certificate_path: &str,
     private_key_path: &str,
     handshake_timeout_seconds: u64,
     gemini_config: &GeminiConfig,
     boot_log_path: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    initialize_status_led(status_led)?;
+
     let tls_owner = crate::tls::ServerTlsConfig::load(certificate_path, private_key_path)?;
 
     let tls_owner: &'static crate::tls::ServerTlsConfig = Box::leak(Box::new(tls_owner));
@@ -125,6 +137,8 @@ pub fn run(
 
         let socket_fd = stream.into_raw_fd();
 
+        change_request_count(true);
+
         let result = unsafe {
             sys::xQueueGenericSend(
                 queue,
@@ -135,6 +149,7 @@ pub fn run(
         };
 
         if result != 1 {
+            change_request_count(false);
             unsafe {
                 sys::close(socket_fd);
             }
@@ -164,6 +179,54 @@ unsafe extern "C" fn worker_entry(arg: *mut std::ffi::c_void) {
         }
 
         process_connection(worker, socket_fd);
+        change_request_count(false);
+    }
+}
+
+
+fn initialize_status_led(pin: i32) -> Result<(), Box<dyn std::error::Error>> {
+    let reset_result = unsafe { sys::gpio_reset_pin(pin) };
+    if reset_result != 0 {
+        return Err(format!("Failed to reset status LED GPIO {}", pin).into());
+    }
+
+    let direction_result =
+        unsafe { sys::gpio_set_direction(pin, sys::gpio_mode_t_GPIO_MODE_OUTPUT) };
+    if direction_result != 0 {
+        return Err(format!("Failed to configure status LED GPIO {} as output", pin).into());
+    }
+
+    let level_result = unsafe { sys::gpio_set_level(pin, 0) };
+    if level_result != 0 {
+        return Err(format!("Failed to turn off status LED GPIO {}", pin).into());
+    }
+
+    let mut activity = REQUEST_ACTIVITY
+        .lock()
+        .map_err(|_| "Failed to lock request activity state")?;
+    activity.pin = pin;
+    activity.count = 0;
+
+    log::info!("Request status LED initialized on GPIO {}", pin);
+    Ok(())
+}
+
+fn change_request_count(increment: bool) {
+    let mut activity = match REQUEST_ACTIVITY.lock() {
+        Ok(activity) => activity,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+
+    if increment {
+        activity.count = activity.count.saturating_add(1);
+    } else {
+        activity.count = activity.count.saturating_sub(1);
+    }
+
+    let level = if activity.count > 0 { 1 } else { 0 };
+    let result = unsafe { sys::gpio_set_level(activity.pin, level) };
+    if result != 0 {
+        log::error!("Failed to update status LED GPIO {}: {}", activity.pin, result);
     }
 }
 

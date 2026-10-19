@@ -89,7 +89,7 @@ git clone --recurse-submodules https://github.com/redterminal-org/esp32-gemserv-
 
 Start with 'config.dist.toml' and create the configuration file expected by the application.
 
-The configuration covers Wi-Fi SSID and password, the Gemini hostname and port, TLS certificate and private-key paths, handshake timeout, request-line size limit, response chunk size, request timeout, and optional language metadata.
+The configuration covers Wi-Fi SSID and password, the Gemini hostname, port, and request status LED GPIO, TLS certificate and private-key paths, handshake timeout, request-line size limit, response chunk size, request timeout, and optional language metadata.
 
 Example configuration:
 
@@ -101,6 +101,7 @@ password = "your-wifi-password"
 [server]
 hostname = "gemini.example.net"
 port = 1965
+status_led = 2
 
 [tls]
 certificate_path = "/littlefs/certs/server.crt"

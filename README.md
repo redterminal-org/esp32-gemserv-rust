@@ -91,7 +91,7 @@ Start with the distributed configuration template, `config.dist.toml`, and creat
 The configuration covers the following areas:
 
 - **Wi-Fi:** SSID and password.
-- **Server:** Gemini hostname and listening port.
+- **Server:** Gemini hostname, listening port, and the GPIO used for the request status LED.
 - **TLS:** Certificate path, private-key path, and handshake timeout.
 - **Gemini:** Request-line size limit, response chunk size, request timeout, and optional language metadata.
 
@@ -105,6 +105,7 @@ password = "your-wifi-password"
 [server]
 hostname = "gemini.example.net"
 port = 1965
+status_led = 2
 
 [tls]
 certificate_path = "/littlefs/certs/server.crt"

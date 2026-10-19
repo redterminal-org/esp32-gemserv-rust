@@ -55,6 +55,7 @@ fn main() {
                                     if let Err(err) = server::run(
                                         &config.server.hostname,
                                         config.server.port,
+                                        config.server.status_led,
                                         &config.tls.certificate_path,
                                         &config.tls.private_key_path,
                                         config.tls.handshake_timeout_seconds,

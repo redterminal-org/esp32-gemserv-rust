@@ -19,6 +19,7 @@ pub struct WifiConfig {
 pub struct ServerConfig {
     pub hostname: String,
     pub port: u16,
+    pub status_led: i32,
 }
 
 #[derive(Debug, Deserialize)]

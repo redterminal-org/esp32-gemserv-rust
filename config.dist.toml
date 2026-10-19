@@ -6,6 +6,8 @@ password = "CHANGE_ME"
 [server]
 hostname = "gemini.example.net"
 port = 1965
+# GPIO output used to indicate queued or active requests.
+status_led = 2
 
 [tls]
 certificate_path = "/littlefs/certs/server.crt"
