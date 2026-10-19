@@ -12,6 +12,19 @@ This capsule is served by a classic ESP32 running a Gemini protocol server writt
 - Bounded request handling and streaming responses
 - Runtime status and boot diagnostics
 
+## Git Repositories (mirrors)
+
+Here are the repositories of the server:
+
+=> https://codeberg.org/fab/esp32-gemserv-rust esp32-gemserv Repository at Codeberg.org
+=> https://github.com/redterminal-org/esp32-gemserv-rust esp32-gemserv Repository at github
+
+You need this command to clone it:
+
+```bash
+git clone --recurse-submodules https://codeberg.org/fab/esp32-gemserv-rust.git
+```
+
 ## Project documentation
 
 => /README.gmi Project overview and documentation
