@@ -91,6 +91,14 @@ Install the Rust and ESP-IDF toolchain required by this project. The repository 
 
 You will also need the relevant ESP-IDF build tools, a supported ESP32 board, and utilities to generate and flash the LittleFS image.
 
+Install the LittleFS image tool:
+
+```bash
+cargo install littlefs2-tool
+```
+
+The package provides the `littlefs` executable used to package the filesystem image.
+
 ## Cloning the repository
 
 Clone the repository including its submodules:
@@ -103,7 +111,7 @@ git clone --recurse-submodules https://github.com/redterminal-org/esp32-gemserv-
 
 Start with 'config.dist.toml' and create the configuration file expected by the application.
 
-The configuration covers Wi-Fi SSID and password, the Gemini hostname, port, and request status LED GPIO, TLS certificate and private-key paths, handshake timeout, request-line size limit, response chunk size, request timeout, and optional language metadata.
+The configuration covers Wi-Fi SSID and password, the Gemini hostname, port, and request status LED GPIO, TLS certificate and private-key paths, handshake timeout, request-line size limit, response chunk size, request timeout, language, timezone, optional boot log path, and status page setting.
 
 Example configuration:
 
@@ -170,32 +178,52 @@ A self-signed certificate is suitable for development, but clients will not auto
 
 ## Preparing the LittleFS image
 
-Place the content to be served under 'littlefs/gemini/':
-
-```text
-littlefs/certs/server.crt
-littlefs/certs/server.key
-littlefs/config.toml
-littlefs/gemini/index.gmi
-littlefs/gemini/README.gmi
-littlefs/gemini/INSTALL_TOOLCHAIN.gmi
-littlefs/gemini/LICENSE.txt
-```
-
-The filesystem image must match the LittleFS partition in 'partitions.csv', which starts at '0x210000' and has size '0x1F0000'.
-
-Where supported by your installed 'mklittlefs' version, the image-generation command can be adapted from:
+Install the image-generation tool if needed:
 
 ```bash
-mklittlefs \
-  -c littlefs \
-  -b 4096 \
-  -p 256 \
-  -s 2031616 \
-  littlefs.bin
+cargo install littlefs2-tool
 ```
 
-Check the tool's options and the filesystem geometry expected by the project's LittleFS integration before relying on these parameters.
+The package provides the `littlefs` executable. Prepare the complete filesystem staging tree under '.build/littlefs'. Its layout must match the paths configured in 'config.toml':
+
+```text
+.build/
+└── littlefs/
+    ├── config.toml
+    ├── certs/
+    │   ├── server.crt
+    │   └── server.key
+    └── gemini/
+        ├── index.gmi
+        ├── README.gmi
+        ├── INSTALL_TOOLCHAIN.gmi
+        ├── LICENSE.txt
+        └── bootlog.txt        # Optional; used when boot_log_path is enabled
+```
+
+Copy the distributed configuration template and example Gemini content into the staging tree:
+
+```bash
+mkdir -p .build/littlefs/certs .build/littlefs/gemini
+cp config.dist.toml .build/littlefs/config.toml
+cp littlefs/gemini/* .build/littlefs/gemini/
+```
+
+The example TLS paths in the configuration expect the certificate and private key at '.build/littlefs/certs/server.crt' and '.build/littlefs/certs/server.key'. Copy your own certificate and key into that directory:
+
+```bash
+cp certs/server.crt certs/server.key .build/littlefs/certs/
+```
+
+The boot log file is optional and is only needed if boot logging is enabled. Add any other Gemini resources under '.build/littlefs/gemini/'.
+
+Create the image using the geometry matching the LittleFS partition in 'partitions.csv':
+
+```bash
+littlefs pack -d .build/littlefs -b 4096 --block-count 496 --page-size 256 --output littlefs.bin
+```
+
+The image uses 4096-byte blocks and 256-byte pages. The 496 blocks provide a capacity of 2,031,616 bytes ('0x1F0000'), matching the partition size at offset '0x210000'.
 
 ## Building
 
@@ -226,7 +254,15 @@ espflash flash \
   target/xtensa-esp32-espidf/release/esp32-gemserv-rust
 ```
 
-Replace '/dev/ttyUSB0' with the serial port for your board. The LittleFS image is flashed separately to the filesystem partition at offset '0x210000'. Use a command appropriate for your tools and verify the partition table and image size before writing to the device.
+Replace '/dev/ttyUSB0' with the serial port for your board.
+
+After creating 'littlefs.bin', flash it separately to the LittleFS partition:
+
+```bash
+espflash write-bin --port /dev/ttyUSB0 --chip esp32 0x210000 littlefs.bin
+```
+
+Verify the serial port, partition offset, and image before writing. This command overwrites the contents of the LittleFS partition.
 
 ## Request handling
 

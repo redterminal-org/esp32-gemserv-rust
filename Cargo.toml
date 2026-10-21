@@ -1,6 +1,6 @@
 [package]
 name = "esp32-gemserv-rust"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["-fab- <fab@redterminal.org>"]
 edition = "2021"
 resolver = "2"
