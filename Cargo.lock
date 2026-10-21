@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "esp32-gemserv-rust"
-version = "1.0.3"
+version = "1.0.5"
 dependencies = [
  "embassy-time",
  "embuild",
